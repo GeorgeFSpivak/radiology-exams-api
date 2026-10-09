@@ -32,12 +32,6 @@ public class ExamStatusChange {
             throw new IllegalArgumentException("Changed by must not be blank.");
         }
 
-        if (!previousStatus.canTransitionTo(newStatus)) {
-            throw new IllegalArgumentException(
-                    "Invalid status transition from " +
-                    previousStatus + "to" + newStatus);
-        }
-
         this.previousStatus = previousStatus;
         this.newStatus = newStatus;
         this.changedAt = changedAt;

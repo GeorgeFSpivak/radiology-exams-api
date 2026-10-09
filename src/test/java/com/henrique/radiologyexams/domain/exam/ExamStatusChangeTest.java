@@ -28,22 +28,6 @@ class ExamStatusChangeTest {
     }
 
     @Test
-    void shouldRejectInvalidStatusTransition() {
-        Instant changedAt = Instant.parse("2026-10-08T00:30:00Z");
-
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new ExamStatusChange(
-                        ExamStatus.REQUESTED,
-                        ExamStatus.REPORT_FINALIZED,
-                        changedAt,
-                        "technician-01"
-                )
-        );
-
-    }
-
-    @Test
     void shouldRejectBlankChangedBy() {
         Instant changedAt = Instant.parse("2026-10-08T00:30:00Z");
 

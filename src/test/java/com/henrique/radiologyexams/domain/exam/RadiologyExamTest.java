@@ -1,5 +1,6 @@
-package com.henrique.radiologyexams.domain;
+package com.henrique.radiologyexams.domain.exam;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,7 +13,7 @@ class RadiologyExamTest {
         RadiologyExam exam = new RadiologyExam("EXAM-001");
 
         assertEquals("EXAM-001", exam.getCode());
-        assertEquals(ExamStatus.REQUESTED, exam.getStatus());
+        Assertions.assertEquals(ExamStatus.REQUESTED, exam.getStatus());
     }
 
     @Test

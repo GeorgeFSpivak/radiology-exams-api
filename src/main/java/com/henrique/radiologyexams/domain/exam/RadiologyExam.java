@@ -1,4 +1,4 @@
-package com.henrique.radiologyexams.domain;
+package com.henrique.radiologyexams.domain.exam;
 
 
 

@@ -1,21 +1,50 @@
 package com.henrique.radiologyexams.domain.exam;
 
+import jakarta.persistence.*;
+
 import java.time.Instant;
 
 
+@Entity
+@Table(name = "exam_status_changes")
 public class ExamStatusChange {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    private final ExamStatus previousStatus;
-    private final ExamStatus newStatus;
-    private final Instant changedAt;
-    private final String changedBy;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "exam_id", nullable = false)
+    private RadiologyExam exam;
 
-    public ExamStatusChange(
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_status", nullable = false, length = 30)
+    private ExamStatus previousStatus;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "new_status", nullable = false, length = 30)
+    private ExamStatus newStatus;
+
+    @Column(name = "changed_at", nullable = false)
+    private Instant changedAt;
+
+    @Column(name = "changed_by", nullable = false, length = 100)
+    private String changedBy;
+
+    protected ExamStatusChange() {
+
+    }
+
+    ExamStatusChange(
+            RadiologyExam exam,
             ExamStatus previousStatus,
             ExamStatus newStatus,
             Instant changedAt,
             String changedBy
     ) {
+        if (exam == null) {
+            throw new IllegalArgumentException("Exam must not be null.");
+        }
+
         if (previousStatus == null) {
             throw new IllegalArgumentException("Previous status must not be null.");
         }
@@ -32,10 +61,21 @@ public class ExamStatusChange {
             throw new IllegalArgumentException("Changed by must not be blank.");
         }
 
+        this.exam = exam;
         this.previousStatus = previousStatus;
         this.newStatus = newStatus;
         this.changedAt = changedAt;
         this.changedBy = changedBy;
+    }
+
+    public Long getId() {
+
+        return id;
+    }
+
+    public RadiologyExam getExam() {
+
+        return exam;
     }
 
     public ExamStatus getPreviousStatus() {

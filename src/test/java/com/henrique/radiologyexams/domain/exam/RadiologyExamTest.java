@@ -11,19 +11,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class RadiologyExamTest {
+    private static final Instant CREATED_AT =
+            Instant.parse("2026-10-08T10:00:00Z");
 
     @Test
-    void shouldCreateExamWithCodeAndRequestedStatus() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+    void shouldCreateExamWithCodeRequestedStatusAndCreatedAt() {
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
 
         assertEquals("EXAM-001", exam.getCode());
         assertEquals(ExamStatus.REQUESTED, exam.getStatus());
         assertTrue(exam.getStatusHistory().isEmpty());
+        assertEquals(CREATED_AT, exam.getCreatedAt());
     }
 
     @Test
     void shouldChangeStatusAndRecordHistoryWhenTransitionIsAllowed() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
         Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
 
         exam.changeStatus(
@@ -45,7 +48,7 @@ class RadiologyExamTest {
 
     @Test
     void shouldNotChangeStatusOrHistoryWhenTransitionIsInvalid() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
         Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
 
         assertThrows(
@@ -65,7 +68,7 @@ class RadiologyExamTest {
     void shouldRejectBlankCode() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new RadiologyExam("   ")
+                () -> new RadiologyExam("   ", CREATED_AT)
         );
     }
 
@@ -73,13 +76,13 @@ class RadiologyExamTest {
     void shouldRejectNullCode() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new RadiologyExam(null)
+                () -> new RadiologyExam(null, CREATED_AT)
         );
     }
 
     @Test
     void shouldNotChangeStatusOrHistoryWhenChangedAtIsNull() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
 
         assertThrows(
                 IllegalArgumentException.class,
@@ -97,7 +100,7 @@ class RadiologyExamTest {
 
     @Test
     void shouldNotChangeStatusOrHistoryWhenChangedByIsBlank() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
         Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
 
         assertThrows(
@@ -115,7 +118,7 @@ class RadiologyExamTest {
 
     @Test
     void shouldRecordStatusChangesInOrder() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
         Instant firstChangedAt = Instant.parse("2026-10-08T12:30:00Z");
         Instant secondChangedAt = Instant.parse("2026-10-09T12:30:00Z");
 
@@ -150,7 +153,7 @@ class RadiologyExamTest {
 
     @Test
     void shouldNotAllowExternalChangesToStatusHistory() {
-        RadiologyExam exam = new RadiologyExam("EXAM-001");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
         Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
 
         exam.changeStatus(
@@ -167,5 +170,13 @@ class RadiologyExamTest {
         );
 
         assertEquals(1, history.size());
+    }
+
+    @Test
+    void shouldRejectNullCreatedAt() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RadiologyExam("EXAM-001", null)
+        );
     }
 }

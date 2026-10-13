@@ -66,4 +66,20 @@ class ExamStatusChangeTest {
         );
     }
 
+    @Test
+    void shouldRejectChangedByLongerThan100Characters() {
+        RadiologyExam exam = new RadiologyExam("EXAM-001", CREATED_AT);
+        Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ExamStatusChange(
+                        exam,
+                        ExamStatus.REQUESTED,
+                        ExamStatus.EXAM_PERFORMED,
+                        changedAt,
+                        "A".repeat(101)
+                )
+        );
+    }
 }

@@ -179,4 +179,12 @@ class RadiologyExamTest {
                 () -> new RadiologyExam("EXAM-001", null)
         );
     }
+
+    @Test
+    void shouldRejectCodeLongerThan50Characters() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new RadiologyExam("A".repeat(51), CREATED_AT)
+        );
+    }
 }

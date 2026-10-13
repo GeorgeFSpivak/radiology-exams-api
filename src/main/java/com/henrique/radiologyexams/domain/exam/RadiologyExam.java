@@ -42,6 +42,10 @@ public class RadiologyExam {
             throw new IllegalArgumentException("Exam code must not be blank.");
         }
 
+        if (code.length() > 50) {
+            throw new IllegalArgumentException("Exam code must have at most 50 characters.");
+        }
+
         if (createdAt == null) {
             throw new IllegalArgumentException("CreatedAt must not be null.");
         }

@@ -61,6 +61,10 @@ public class ExamStatusChange {
             throw new IllegalArgumentException("Changed by must not be blank.");
         }
 
+        if (changedBy.length() > 100) {
+            throw new IllegalArgumentException("Changed by must have at most 100 characters.");
+        }
+
         this.exam = exam;
         this.previousStatus = previousStatus;
         this.newStatus = newStatus;

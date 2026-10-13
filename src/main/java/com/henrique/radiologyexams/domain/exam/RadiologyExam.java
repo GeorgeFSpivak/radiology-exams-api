@@ -73,7 +73,7 @@ public class RadiologyExam {
         return List.copyOf(statusHistory);
     }
 
-    public void changeStatus(
+    public ExamStatusChange changeStatus(
             ExamStatus nextStatus,
             Instant changedAt,
             String changedBy
@@ -94,6 +94,7 @@ public class RadiologyExam {
         this.status = nextStatus;
         this.statusHistory.add(change);
 
+        return change;
     }
 
     public Instant getCreatedAt() {

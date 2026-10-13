@@ -1,10 +1,8 @@
 package com.henrique.radiologyexams.services;
 
-import com.henrique.radiologyexams.domain.exam.ExamStatus;
-import com.henrique.radiologyexams.domain.exam.RadiologyExam;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamRequestDTO;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamResponseDTO;
+import com.henrique.radiologyexams.domain.exam.*;
 import com.henrique.radiologyexams.exceptions.ExamAlreadyExistsException;
+import com.henrique.radiologyexams.exceptions.ExamNotFoundException;
 import com.henrique.radiologyexams.repositories.RadiologyExamRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -15,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -69,5 +68,92 @@ class RadiologyExamServiceTest {
         );
 
         verify(repository, never()).save(any(RadiologyExam.class));
+    }
+
+    @Test
+    void shouldReturnExamDetailsWithStatusHistory() {
+        RadiologyExam exam = new RadiologyExam("EXAM-001", FIXED_INSTANT);
+        Instant changedAt = Instant.parse("2026-10-12T12:00:00Z");
+
+        exam.changeStatus(
+                ExamStatus.EXAM_PERFORMED,
+                changedAt,
+                "technician-01"
+        );
+
+        when(repository.findByCode("EXAM-001")).thenReturn(Optional.of(exam));
+
+        RadiologyExamDetailsDTO details = service.getExamByCode("EXAM-001");
+
+        assertEquals("EXAM-001",  details.code());
+        assertEquals(ExamStatus.EXAM_PERFORMED, details.status());
+        assertEquals(FIXED_INSTANT, details.createdAt());
+        assertEquals(1, details.statusHistory().size());
+
+        ExamStatusChangeResponseDTO firstChange =
+                details.statusHistory().get(0);
+
+        assertEquals(ExamStatus.REQUESTED, firstChange.previousStatus());
+        assertEquals(ExamStatus.EXAM_PERFORMED, firstChange.newStatus());
+        assertEquals(changedAt, firstChange.changedAt());
+        assertEquals("technician-01", firstChange.changedBy());
+    }
+
+    @Test
+    void shouldThrowWhenExamCodeDoesNotExist() {
+        when(repository.findByCode("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ExamNotFoundException.class,
+                () -> service.getExamByCode("UNKNOWN")
+        );
+
+        verify(repository).findByCode("UNKNOWN");
+    }
+
+    @Test
+    void shouldChangeExamStatusAndReturnChangeDetails() {
+        Instant createdAt = Instant.parse("2026-10-12T08:00:00Z");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", createdAt);
+
+        when(repository.findByCode("EXAM-001"))
+                .thenReturn(Optional.of(exam));
+
+        ExamStatusChangeRequestDTO request =
+                new  ExamStatusChangeRequestDTO(
+                        ExamStatus.EXAM_PERFORMED,
+                        "technician-01"
+                );
+
+        ExamStatusChangeResponseDTO response =
+                service.changeExamStatus("EXAM-001", request);
+
+        assertEquals(ExamStatus.REQUESTED, response.previousStatus());
+        assertEquals(ExamStatus.EXAM_PERFORMED, response.newStatus());
+        assertEquals(FIXED_INSTANT, response.changedAt());
+        assertEquals("technician-01", response.changedBy());
+        assertEquals(ExamStatus.EXAM_PERFORMED, exam.getStatus());
+        assertEquals(1, exam.getStatusHistory().size());
+        verify(repository).findByCode("EXAM-001");
+    }
+
+    @Test
+    void shouldNotChangeStatusWhenExamCodeDoesNotExist() {
+        when(repository.findByCode("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        ExamStatusChangeRequestDTO request =
+                new ExamStatusChangeRequestDTO(
+                        ExamStatus.EXAM_PERFORMED,
+                        "technician-01"
+                );
+
+        assertThrows(
+                ExamNotFoundException.class,
+                () -> service.changeExamStatus("UNKNOWN", request)
+        );
+
+        verify(repository).findByCode("UNKNOWN");
     }
 }

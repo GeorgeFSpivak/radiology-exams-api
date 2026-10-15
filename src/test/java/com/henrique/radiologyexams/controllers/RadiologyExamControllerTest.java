@@ -1,9 +1,7 @@
 package com.henrique.radiologyexams.controllers;
 
 
-import com.henrique.radiologyexams.domain.exam.ExamStatus;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamRequestDTO;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamResponseDTO;
+import com.henrique.radiologyexams.domain.exam.*;
 import com.henrique.radiologyexams.services.RadiologyExamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,9 +11,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.Instant;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -74,5 +74,47 @@ public class RadiologyExamControllerTest {
                 ).andExpect(status().isBadRequest());
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldReturnExamDetailsByCode() throws Exception {
+        Instant createdAt = Instant.parse("2026-10-15T02:00:00Z");
+        Instant changedAt = Instant.parse("2026-10-15T10:00:00Z");
+
+        List<ExamStatusChangeResponseDTO> history =
+                List.of(new ExamStatusChangeResponseDTO(
+                        ExamStatus.REQUESTED,
+                        ExamStatus.EXAM_PERFORMED,
+                        changedAt,
+                        "technician-01"
+                ));
+
+        RadiologyExamDetailsDTO details =
+                new RadiologyExamDetailsDTO(
+                        "EXAM-001",
+                        ExamStatus.EXAM_PERFORMED,
+                        createdAt,
+                        history
+                );
+
+        when(service.getExamByCode("EXAM-001")).thenReturn(details);
+
+        mockMvc.perform(
+                get("/exams/EXAM-001")
+        ).andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value("EXAM-001"))
+                .andExpect(jsonPath("$.status").value("EXAM_PERFORMED"))
+                .andExpect(jsonPath("$.createdAt")
+                        .value("2026-10-15T02:00:00Z"))
+                .andExpect(jsonPath("$.statusHistory[0].previousStatus")
+                        .value("REQUESTED"))
+                .andExpect(jsonPath("$.statusHistory[0].newStatus")
+                        .value("EXAM_PERFORMED"))
+                .andExpect(jsonPath("$.statusHistory[0].changedAt")
+                        .value("2026-10-15T10:00:00Z"))
+                .andExpect(jsonPath("$.statusHistory[0].changedBy")
+                        .value("technician-01"));
+
+        verify(service).getExamByCode("EXAM-001");
     }
 }

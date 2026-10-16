@@ -1,6 +1,7 @@
 package com.henrique.radiologyexams.domain.exam;
 
 
+import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
 import jakarta.persistence.*;
 
 import java.time.Instant;
@@ -83,8 +84,8 @@ public class RadiologyExam {
             String changedBy
     ) {
         if (!status.canTransitionTo(nextStatus)) {
-            throw new IllegalStateException(
-                    "cannot transition exam from " + status + " to " + nextStatus + ".");
+
+            throw new InvalidExamStatusTransitionException(status, nextStatus);
         }
 
         ExamStatusChange change = new ExamStatusChange(

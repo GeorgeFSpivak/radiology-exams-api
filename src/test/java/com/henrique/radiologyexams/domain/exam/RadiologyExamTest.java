@@ -1,5 +1,6 @@
 package com.henrique.radiologyexams.domain.exam;
 
+import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -52,7 +53,7 @@ class RadiologyExamTest {
         Instant changedAt = Instant.parse("2026-10-08T12:30:00Z");
 
         assertThrows(
-                IllegalStateException.class,
+                InvalidExamStatusTransitionException.class,
                 () -> exam.changeStatus(
                         ExamStatus.REPORT_FINALIZED,
                         changedAt,

@@ -2,6 +2,9 @@ package com.henrique.radiologyexams.controllers;
 
 
 import com.henrique.radiologyexams.domain.exam.*;
+import com.henrique.radiologyexams.exceptions.ExamAlreadyExistsException;
+import com.henrique.radiologyexams.exceptions.ExamNotFoundException;
+import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
 import com.henrique.radiologyexams.services.RadiologyExamService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,7 +73,11 @@ public class RadiologyExamControllerTest {
                                     "code": " "
                                 }
                                 """)
-                ).andExpect(status().isBadRequest());
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.detail").value("Request validation failed."))
+                .andExpect(jsonPath("$.errors.code")
+                        .value("Exam code must not be blank."));
 
         verifyNoInteractions(service);
     }
@@ -172,8 +179,90 @@ public class RadiologyExamControllerTest {
                             "changedBy": "technician-01"
                         }
                 """)
-                ).andExpect(status().isBadRequest());
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Invalid request"))
+                .andExpect(jsonPath("$.detail").value("Request validation failed."))
+                .andExpect(jsonPath("$.errors.newStatus")
+                        .value("New status must not be null."));
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldReturnNotFoundWhenExamDoesNotExist() throws Exception {
+        ExamNotFoundException ex =
+                new ExamNotFoundException("UNKNOWN");
+
+        when(service.getExamByCode("UNKNOWN")).thenThrow(ex);
+
+        mockMvc.perform(get("/exams/UNKNOWN")
+        ).andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.title")
+                        .value("Exam not found"))
+                .andExpect(jsonPath("$.detail").value(ex.getMessage()));
+
+        verify(service).getExamByCode("UNKNOWN");
+    }
+
+    @Test
+    void shouldReturnConflictWhenExamCodeAlreadyExists() throws Exception {
+        RadiologyExamRequestDTO request =
+                new RadiologyExamRequestDTO("EXAM-001");
+
+        ExamAlreadyExistsException ex =
+                new ExamAlreadyExistsException("EXAM-001");
+
+        when(service.createExam(request)).thenThrow(ex);
+
+        mockMvc.perform(post("/exams")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                            "code": "EXAM-001"
+                        }
+                        """)
+        ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.title")
+                        .value("Exam already exists"))
+                .andExpect(jsonPath("$.detail")
+                        .value(ex.getMessage()));
+
+        verify(service).createExam(request);
+    }
+
+    @Test
+    void shouldReturnConflictWhenStatusTransitionIsInvalid() throws Exception {
+        ExamStatusChangeRequestDTO request =
+                new ExamStatusChangeRequestDTO(
+                        ExamStatus.REPORT_FINALIZED,
+                        "radiologist-01"
+                );
+
+        InvalidExamStatusTransitionException ex =
+                new InvalidExamStatusTransitionException(
+                        ExamStatus.REQUESTED,
+                        ExamStatus.REPORT_FINALIZED
+                );
+
+        when(service.changeExamStatus("EXAM-001", request)).thenThrow(ex);
+
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                            "newStatus": "REPORT_FINALIZED",
+                            "changedBy": "radiologist-01"
+                        }
+                        """)
+        ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid status transition"))
+                .andExpect(jsonPath("$.detail")
+                        .value(ex.getMessage()));
+
+        verify(service).changeExamStatus("EXAM-001", request);
     }
 }

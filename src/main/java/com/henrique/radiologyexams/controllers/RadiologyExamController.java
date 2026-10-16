@@ -1,9 +1,7 @@
 package com.henrique.radiologyexams.controllers;
 
 
-import com.henrique.radiologyexams.domain.exam.RadiologyExamDetailsDTO;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamRequestDTO;
-import com.henrique.radiologyexams.domain.exam.RadiologyExamResponseDTO;
+import com.henrique.radiologyexams.domain.exam.*;
 import com.henrique.radiologyexams.services.RadiologyExamService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -30,8 +28,21 @@ public class RadiologyExamController {
     }
 
     @GetMapping("/{code}")
-    public ResponseEntity<RadiologyExamDetailsDTO> getExamByCode(@PathVariable String code){
+    public ResponseEntity<RadiologyExamDetailsDTO> getExamByCode(
+            @PathVariable String code
+    ){
         RadiologyExamDetailsDTO details = service.getExamByCode(code);
         return ResponseEntity.status(HttpStatus.OK).body(details);
+    }
+
+    @PatchMapping("/{code}/status")
+    public ResponseEntity<ExamStatusChangeResponseDTO> changeExamStatus(
+            @PathVariable String code,
+            @Valid @RequestBody ExamStatusChangeRequestDTO request
+    ) {
+        ExamStatusChangeResponseDTO response =
+                service.changeExamStatus(code, request);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 }

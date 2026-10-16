@@ -15,8 +15,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -116,5 +115,65 @@ public class RadiologyExamControllerTest {
                         .value("technician-01"));
 
         verify(service).getExamByCode("EXAM-001");
+    }
+
+    @Test
+    void shouldChangeExamStatus() throws Exception {
+        Instant changedAt =  Instant.parse("2026-10-15T10:00:00Z");
+
+        ExamStatusChangeRequestDTO request =
+                new ExamStatusChangeRequestDTO(
+                        ExamStatus.EXAM_PERFORMED,
+                        "technician-01"
+                );
+
+        ExamStatusChangeResponseDTO response =
+                new ExamStatusChangeResponseDTO(
+                        ExamStatus.REQUESTED,
+                        ExamStatus.EXAM_PERFORMED,
+                        changedAt,
+                        "technician-01"
+                );
+
+        when(service.changeExamStatus(
+                "EXAM-001",
+                request)
+        ).thenReturn(response);
+
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {
+                            "newStatus": "EXAM_PERFORMED",
+                            "changedBy": "technician-01"
+                        }
+                """)
+        ).andExpect(status().isOk())
+                .andExpect(jsonPath("$.previousStatus")
+                        .value("REQUESTED"))
+                .andExpect(jsonPath("$.newStatus")
+                        .value("EXAM_PERFORMED"))
+                .andExpect(jsonPath("$.changedAt")
+                        .value("2026-10-15T10:00:00Z"))
+                .andExpect(jsonPath("$.changedBy")
+                        .value("technician-01"));
+
+        verify(service).changeExamStatus("EXAM-001", request);
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenNewStatusIsNull() throws Exception {
+
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "newStatus": null,
+                            "changedBy": "technician-01"
+                        }
+                """)
+                ).andExpect(status().isBadRequest());
+
+        verifyNoInteractions(service);
     }
 }

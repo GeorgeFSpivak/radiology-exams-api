@@ -2,6 +2,7 @@ package com.henrique.radiologyexams.exceptions;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -76,6 +77,20 @@ public class GlobalExceptionHandler {
 
         problem.setTitle("Invalid request");
         problem.setProperty("errors", errors);
+
+        return problem;
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleUnreadableRequest(
+            HttpMessageNotReadableException ex
+    ) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Request body is invalid."
+        );
+
+        problem.setTitle("Invalid request");
 
         return problem;
     }

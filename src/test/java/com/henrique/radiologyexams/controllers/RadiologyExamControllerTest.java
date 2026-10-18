@@ -265,4 +265,41 @@ public class RadiologyExamControllerTest {
 
         verify(service).changeExamStatus("EXAM-001", request);
     }
+
+    @Test
+    void shouldReturnBadRequestWhenStatusDoesNotExist() throws Exception {
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "newStatus": "EXAM_FINALLY",
+                            "changedBy": "technician-01"
+                        }
+                """)
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid request"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Request body is invalid."));
+
+
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenRequestBodyIsMalformed() throws Exception {
+        mockMvc.perform(post("/exams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "code": "EXAM-001"
+                        """)
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title")
+                        .value("Invalid request"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Request body is invalid."));
+
+        verifyNoInteractions(service);
+    }
 }

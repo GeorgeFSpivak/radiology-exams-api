@@ -11,5 +11,30 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  orthanc:
+    image: orthancteam/orthanc:26.9.1
+    container_name: radiology-exams-orthanc
+    environment:
+      ORTHANC__REGISTERED_USERS: |
+        {
+          "orthanc_user": "password"
+        }
+    ports:
+      - "8042:8042"
+    volumes:
+      - orthanc_data:/var/lib/orthanc/db
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/probes/test-aliveness.py --user=orthanc_user --pwd=password"
+        ]
+      start_period: 10s
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
 volumes:
   postgres_data:
+  orthanc_data:

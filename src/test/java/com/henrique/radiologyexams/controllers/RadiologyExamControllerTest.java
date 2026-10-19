@@ -2,6 +2,7 @@ package com.henrique.radiologyexams.controllers;
 
 
 import com.henrique.radiologyexams.domain.exam.*;
+import com.henrique.radiologyexams.exceptions.DicomStudyRequiredException;
 import com.henrique.radiologyexams.exceptions.ExamAlreadyExistsException;
 import com.henrique.radiologyexams.exceptions.ExamNotFoundException;
 import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
@@ -301,5 +302,35 @@ public class RadiologyExamControllerTest {
                         .value("Request body is invalid."));
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void shouldReturnConflictWhenDicomStudyIsRequired() throws Exception {
+        ExamStatusChangeRequestDTO request =
+                new ExamStatusChangeRequestDTO(
+                        ExamStatus.EXAM_PERFORMED,
+                        "technician-01"
+                );
+
+        DicomStudyRequiredException ex =
+                new DicomStudyRequiredException();
+
+        when(service.changeExamStatus("EXAM-001", request)).thenThrow(ex);
+
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "newStatus": "EXAM_PERFORMED",
+                            "changedBy": "technician-01"
+                        }
+                        """)
+                ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title")
+                        .value("Dicom study required"))
+                .andExpect(jsonPath("$.detail")
+                        .value(ex.getMessage()));
+
+        verify(service).changeExamStatus("EXAM-001", request);
     }
 }

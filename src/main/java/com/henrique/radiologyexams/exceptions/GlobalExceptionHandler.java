@@ -94,4 +94,18 @@ public class GlobalExceptionHandler {
 
         return problem;
     }
+
+    @ExceptionHandler(DicomStudyRequiredException.class)
+    public ProblemDetail handleDicomStudyRequired(
+            DicomStudyRequiredException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+
+        problem.setTitle("Dicom study required");
+
+        return problem;
+    }
 }

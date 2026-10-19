@@ -1,6 +1,8 @@
 package com.henrique.radiologyexams.domain.exam;
 
 
+import com.henrique.radiologyexams.exceptions.DicomStudyRequiredException;
+import com.henrique.radiologyexams.exceptions.InvalidDicomStudyAssociationException;
 import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
 import jakarta.persistence.*;
 
@@ -34,6 +36,15 @@ public class RadiologyExam {
     @Column(nullable = false)
     private Long version;
 
+    @Column(name = "orthanc_study_id", unique = true, length = 64)
+    private String orthancStudyId;
+
+    @Column(name = "study_instance_uid", unique = true, length = 64)
+    private String studyInstanceUid;
+
+    @Column(name = "dicom_received_at")
+    private Instant dicomReceivedAt;
+
     protected RadiologyExam() {
 
     }
@@ -44,7 +55,9 @@ public class RadiologyExam {
         }
 
         if (code.length() > 50) {
-            throw new IllegalArgumentException("Exam code must have at most 50 characters.");
+            throw new IllegalArgumentException(
+                    "Exam code must have at most 50 characters."
+            );
         }
 
         if (createdAt == null) {
@@ -88,6 +101,11 @@ public class RadiologyExam {
             throw new InvalidExamStatusTransitionException(status, nextStatus);
         }
 
+        if (nextStatus == ExamStatus.EXAM_PERFORMED && !hasDicomStudy()) {
+
+            throw new DicomStudyRequiredException();
+        }
+
         ExamStatusChange change = new ExamStatusChange(
                 this,
                 status,
@@ -110,5 +128,75 @@ public class RadiologyExam {
     public Long getVersion() {
 
         return version;
+    }
+
+    public String getOrthancStudyId() {
+
+        return orthancStudyId;
+    }
+
+    public String getStudyInstanceUid() {
+
+        return studyInstanceUid;
+    }
+
+    public Instant getDicomReceivedAt() {
+
+        return dicomReceivedAt;
+    }
+
+    public boolean hasDicomStudy() {
+
+        return orthancStudyId != null;
+    }
+
+    public void associateDicomStudy(
+            String orthancStudyId,
+            String studyInstanceUid,
+            Instant dicomReceivedAt
+    ){
+        if (orthancStudyId == null || orthancStudyId.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Orthanc Study Id must not be null/blank."
+            );
+        }
+
+        if (orthancStudyId.length() > 64) {
+            throw new IllegalArgumentException(
+                    "Orthanc Study Id must not be longer than 64 characters."
+            );
+        }
+
+        if (studyInstanceUid == null || studyInstanceUid.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Study Instance Uid must not be null/blank."
+            );
+        }
+
+        if (studyInstanceUid.length() > 64) {
+            throw new IllegalArgumentException(
+                    "Study Instance Uid must not be longer than 64 characters."
+            );
+        }
+
+        if (dicomReceivedAt == null) {
+            throw new IllegalArgumentException("Dicom Received At must not be null.");
+        }
+
+        if (hasDicomStudy()) {
+            throw new InvalidDicomStudyAssociationException(
+                    "A dicom study is already associated with this exam."
+            );
+        }
+
+        if (status != ExamStatus.REQUESTED) {
+            throw new InvalidDicomStudyAssociationException(
+                    "A dicom study can only be associated with an exam in REQUESTED status."
+            );
+        }
+
+        this.orthancStudyId = orthancStudyId;
+        this.studyInstanceUid = studyInstanceUid;
+        this.dicomReceivedAt = dicomReceivedAt;
     }
 }

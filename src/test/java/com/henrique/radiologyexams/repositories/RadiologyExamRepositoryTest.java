@@ -57,6 +57,13 @@ class RadiologyExamRepositoryTest {
         RadiologyExam exam = new RadiologyExam("EXAM-DB-002", CREATED_AT);
         Instant firstChangedAt = Instant.parse("2026-10-08T12:30:00Z");
         Instant secondChangedAt = Instant.parse("2026-10-08T14:30:00Z");
+        Instant receivedAt = Instant.parse("2026-10-08T11:30:00Z");
+
+        exam.associateDicomStudy(
+                "orthanc-study-001",
+                "1.2.840.113619.2.55.3.604688435.123",
+                receivedAt
+        );
 
         exam.changeStatus(
                 ExamStatus.EXAM_PERFORMED,
@@ -99,5 +106,30 @@ class RadiologyExamRepositoryTest {
         assertEquals(secondChangedAt, secondChange.getChangedAt());
         assertEquals("technician-01", firstChange.getChangedBy());
         assertEquals("radiologist-01", secondChange.getChangedBy());
+    }
+
+    @Test
+    void shouldSaveAndLoadDicomStudyReference() {
+        RadiologyExam exam = new RadiologyExam("EXAM-DB-003", CREATED_AT);
+        String orthancStudyId = "orthanc-study-003";
+        String studyInstanceUid = "1.2.840.113619.2.55.3.604688435.123";
+        Instant receivedAt = Instant.parse("2026-10-08T15:30:00Z");
+
+        exam.associateDicomStudy(
+                orthancStudyId,
+                studyInstanceUid,
+                receivedAt
+        );
+
+        repository.saveAndFlush(exam);
+        entityManager.clear();
+
+        RadiologyExam savedExam =
+                repository.findByCode("EXAM-DB-003").orElseThrow();
+
+        assertEquals(orthancStudyId, savedExam.getOrthancStudyId());
+        assertEquals(studyInstanceUid,  savedExam.getStudyInstanceUid());
+        assertEquals(receivedAt, savedExam.getDicomReceivedAt());
+        assertTrue(savedExam.hasDicomStudy());
     }
 }

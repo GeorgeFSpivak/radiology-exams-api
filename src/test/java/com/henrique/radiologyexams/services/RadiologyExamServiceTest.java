@@ -75,6 +75,12 @@ class RadiologyExamServiceTest {
         RadiologyExam exam = new RadiologyExam("EXAM-001", FIXED_INSTANT);
         Instant changedAt = Instant.parse("2026-10-12T12:00:00Z");
 
+        exam.associateDicomStudy(
+                "orthanc-study-001",
+                "1.2.840.113619.2.55.3.604688435.123",
+                Instant.parse("2026-10-12T11:00:00Z")
+        );
+
         exam.changeStatus(
                 ExamStatus.EXAM_PERFORMED,
                 changedAt,
@@ -116,6 +122,12 @@ class RadiologyExamServiceTest {
     void shouldChangeExamStatusAndReturnChangeDetails() {
         Instant createdAt = Instant.parse("2026-10-12T08:00:00Z");
         RadiologyExam exam = new RadiologyExam("EXAM-001", createdAt);
+
+        exam.associateDicomStudy(
+                "orthanc-study-001",
+                "1.2.840.113619.2.55.3.604688435.123",
+                Instant.parse("2026-10-12T09:00:00Z")
+        );
 
         when(repository.findByCode("EXAM-001"))
                 .thenReturn(Optional.of(exam));

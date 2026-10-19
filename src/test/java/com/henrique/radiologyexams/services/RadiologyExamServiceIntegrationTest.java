@@ -35,6 +35,12 @@ class RadiologyExamServiceIntegrationTest {
                 Instant.parse("2026-10-13T01:00:00Z")
         );
 
+        exam.associateDicomStudy(
+                "orthanc-study-001",
+                "1.2.840.113619.2.55.3.604688435.123",
+                Instant.parse("2026-10-13T02:00:00Z")
+        );
+
         repository.saveAndFlush(exam);
         entityManager.clear();
 

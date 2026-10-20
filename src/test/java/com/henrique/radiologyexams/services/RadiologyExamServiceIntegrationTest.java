@@ -1,6 +1,7 @@
 package com.henrique.radiologyexams.services;
 
 
+import com.henrique.radiologyexams.config.PostgresTestConfiguration;
 import com.henrique.radiologyexams.domain.exam.*;
 import com.henrique.radiologyexams.repositories.RadiologyExamRepository;
 import jakarta.persistence.EntityManager;
@@ -8,6 +9,7 @@ import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
@@ -18,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SpringBootTest
 @Transactional
+@Import(PostgresTestConfiguration.class)
 class RadiologyExamServiceIntegrationTest {
     @Autowired
     private RadiologyExamService service;

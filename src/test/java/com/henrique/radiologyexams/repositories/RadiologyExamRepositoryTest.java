@@ -11,6 +11,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 import java.time.Instant;
 import java.util.List;
@@ -134,5 +136,53 @@ class RadiologyExamRepositoryTest {
         assertEquals(studyInstanceUid,  savedExam.getStudyInstanceUid());
         assertEquals(receivedAt, savedExam.getDicomReceivedAt());
         assertTrue(savedExam.hasDicomStudy());
+    }
+
+    @Test
+    void shouldRejectSavingExamWithOutdatedVersion() {
+        RadiologyExam outdatedExam = new RadiologyExam("EXAM-DB-004", CREATED_AT);
+        String orthancStudyId = "orthanc-study-004";
+        String studyInstanceUid = "1.2.840.113619.2.55.3.604688435.123";
+
+        repository.saveAndFlush(outdatedExam);
+        entityManager.clear();
+
+        RadiologyExam currentExam =
+                repository.findByCode("EXAM-DB-004").orElseThrow();
+
+        currentExam.changeStatus(
+                ExamStatus.CANCELED,
+                CREATED_AT.plusSeconds(3600),
+                "technician-01"
+        );
+
+        repository.flush();
+
+        assertNotEquals(outdatedExam.getVersion(), currentExam.getVersion());
+
+        entityManager.clear();
+
+        outdatedExam.associateDicomStudy(
+                orthancStudyId,
+                studyInstanceUid,
+                CREATED_AT.plusSeconds(1800)
+        );
+
+        assertThrows(
+                OptimisticLockingFailureException.class,
+                () -> repository.saveAndFlush(outdatedExam)
+        );
+    }
+
+    @Test
+    void shouldRejectDuplicateExamCode() {
+        RadiologyExam exam = new RadiologyExam("EXAM-DB-005", CREATED_AT);
+        repository.saveAndFlush(exam);
+
+        RadiologyExam newExam = new RadiologyExam("EXAM-DB-005", CREATED_AT);
+        assertThrows(
+                DataIntegrityViolationException.class,
+                () -> repository.saveAndFlush(newExam)
+        );
     }
 }

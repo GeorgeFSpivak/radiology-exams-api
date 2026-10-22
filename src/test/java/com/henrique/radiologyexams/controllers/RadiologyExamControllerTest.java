@@ -7,16 +7,23 @@ import com.henrique.radiologyexams.exceptions.ExamAlreadyExistsException;
 import com.henrique.radiologyexams.exceptions.ExamNotFoundException;
 import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
 import com.henrique.radiologyexams.services.RadiologyExamService;
+import jakarta.servlet.ServletException;
+import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -332,5 +339,93 @@ public class RadiologyExamControllerTest {
                         .value(ex.getMessage()));
 
         verify(service).changeExamStatus("EXAM-001", request);
+    }
+
+    @Test
+    void shouldReturnConflictWhenOptimisticLockingFails() throws Exception {
+        ExamStatusChangeRequestDTO request =
+                new ExamStatusChangeRequestDTO(
+                        ExamStatus.EXAM_PERFORMED,
+                        "technician-01"
+                );
+
+        OptimisticLockingFailureException ex =
+                new OptimisticLockingFailureException("Concurrent update");
+
+        when(service.changeExamStatus("EXAM-001", request)).thenThrow(ex);
+
+        mockMvc.perform(patch("/exams/EXAM-001/status")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "newStatus": "EXAM_PERFORMED",
+                            "changedBy": "technician-01"
+                        }
+                        """)
+                ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title")
+                        .value("Exam update conflict"))
+                .andExpect(jsonPath("$.detail")
+                        .value("Exam was updated by another request. Reload it and try again."));
+
+        verify(service).changeExamStatus("EXAM-001", request);
+    }
+
+    @Test
+    void shouldReturnConflictWhenExamCodeUniqueConstraintIsViolated() throws Exception {
+        RadiologyExamRequestDTO request = new RadiologyExamRequestDTO("EXAM-001");
+
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "Duplicate exam code",
+                new SQLException("Duplicate exam code", "23505"),
+                "radiology_exams_code_key"
+        );
+        DataIntegrityViolationException ex =
+                new DataIntegrityViolationException("Could not save exam", cause);
+
+        when(service.createExam(request)).thenThrow(ex);
+
+        mockMvc.perform(post("/exams")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                            "code": "EXAM-001"
+                        }
+                        """)
+                ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.title")
+                        .value("Exam already exists"))
+                .andExpect(jsonPath("$.detail")
+                        .value("An exam with this code already exists."));
+
+        verify(service).createExam(request);
+    }
+
+    @Test
+    void shouldNotTreatOtherConstraintsAsDuplicateExamCode() throws Exception {
+        RadiologyExamRequestDTO request = new RadiologyExamRequestDTO("EXAM-001");
+
+        ConstraintViolationException cause = new ConstraintViolationException(
+                "Duplicate exam code",
+                new SQLException("Duplicate exam code", "23505"),
+                "another_constraint"
+        );
+        DataIntegrityViolationException ex =
+                new DataIntegrityViolationException("Could not save exam", cause);
+
+        when(service.createExam(request)).thenThrow(ex);
+
+        ServletException failure = assertThrows(ServletException.class, () ->
+                mockMvc.perform(post("/exams")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("""
+                        {
+                            "code": "EXAM-001"
+                        }
+                        """)
+                )
+        );
+
+        assertSame(ex, failure.getCause());
     }
 }

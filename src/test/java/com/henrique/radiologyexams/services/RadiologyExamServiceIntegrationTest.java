@@ -4,22 +4,18 @@ package com.henrique.radiologyexams.services;
 import com.henrique.radiologyexams.config.PostgresTestConfiguration;
 import com.henrique.radiologyexams.domain.exam.*;
 import com.henrique.radiologyexams.repositories.RadiologyExamRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.time.Instant;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 
 @SpringBootTest
-@Transactional
 @Import(PostgresTestConfiguration.class)
 class RadiologyExamServiceIntegrationTest {
     @Autowired
@@ -28,10 +24,24 @@ class RadiologyExamServiceIntegrationTest {
     @Autowired
     private RadiologyExamRepository repository;
 
-    @PersistenceContext
-    private EntityManager entityManager;
 
     @Test
+    @Sql(
+            statements = {
+                    """
+                    DELETE FROM exam_status_changes
+                    WHERE exam_id IN (
+                        SELECT id FROM radiology_exams
+                        WHERE code = 'EXAM-SERVICE-DB-001'
+                    );
+                    """,
+                    """
+                    DELETE FROM radiology_exams
+                    WHERE code = 'EXAM-SERVICE-DB-001';
+                    """
+            },
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
+    )
     void shouldPersistStatusChangeAndHistory() {
         RadiologyExam exam = new RadiologyExam(
                 "EXAM-SERVICE-DB-001",
@@ -45,7 +55,6 @@ class RadiologyExamServiceIntegrationTest {
         );
 
         repository.saveAndFlush(exam);
-        entityManager.clear();
 
         ExamStatusChangeRequestDTO request = new ExamStatusChangeRequestDTO(
                 ExamStatus.EXAM_PERFORMED,
@@ -57,22 +66,18 @@ class RadiologyExamServiceIntegrationTest {
                 request
         );
 
-        entityManager.flush();
-        entityManager.clear();
+        RadiologyExamDetailsDTO savedExam =
+                service.getExamByCode("EXAM-SERVICE-DB-001");
 
-        RadiologyExam savedExam = repository.findByCode("EXAM-SERVICE-DB-001")
-                .orElseThrow();
+        assertEquals(ExamStatus.EXAM_PERFORMED, savedExam.status());
+        assertEquals(1, savedExam.statusHistory().size());
 
-        assertEquals(ExamStatus.EXAM_PERFORMED, savedExam.getStatus());
-        assertEquals(1, savedExam.getStatusHistory().size());
+        ExamStatusChangeResponseDTO savedChange =
+                savedExam.statusHistory().get(0);
 
-        List<ExamStatusChange> history = savedExam.getStatusHistory();
-        ExamStatusChange savedChange = history.get(0);
-
-        assertNotNull(savedChange.getId());
-        assertEquals(ExamStatus.REQUESTED, savedChange.getPreviousStatus());
-        assertEquals(ExamStatus.EXAM_PERFORMED, savedChange.getNewStatus());
-        assertEquals(response.changedAt(), savedChange.getChangedAt());
-        assertEquals("technician-01", savedChange.getChangedBy());
+        assertEquals(ExamStatus.REQUESTED, savedChange.previousStatus());
+        assertEquals(ExamStatus.EXAM_PERFORMED, savedChange.newStatus());
+        assertEquals(response.changedAt(), savedChange.changedAt());
+        assertEquals("technician-01", savedChange.changedBy());
     }
 }

@@ -1,5 +1,8 @@
 package com.henrique.radiologyexams.exceptions;
 
+import org.hibernate.exception.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -105,6 +108,40 @@ public class GlobalExceptionHandler {
         );
 
         problem.setTitle("Dicom study required");
+
+        return problem;
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ProblemDetail handleOptimisticLockingFailure(
+            OptimisticLockingFailureException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Exam was updated by another request. Reload it and try again."
+        );
+
+        problem.setTitle("Exam update conflict");
+
+        return problem;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation (
+            DataIntegrityViolationException ex
+    ){
+        if (!(ex.getCause() instanceof ConstraintViolationException violation)
+                || !"radiology_exams_code_key".equals(violation.getConstraintName())){
+
+            throw ex;
+        }
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "An exam with this code already exists."
+        );
+
+        problem.setTitle("Exam already exists");
 
         return problem;
     }

@@ -303,4 +303,110 @@ class OrthancClientTest {
 
         server.verify();
     }
+
+    @Test
+    void shouldReturnStudyInformation() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                            "ID": "study-001",
+                            "MainDicomTags": {"StudyInstanceUID": "1.2.840.123", "StudyDescription": "breast ct"}
+                        }
+                        """, MediaType.APPLICATION_JSON
+                ));
+
+        OrthancStudyResponseDTO response = client.getStudy("study-001");
+
+        assertEquals("1.2.840.123", response.mainDicomTags().studyInstanceUid());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldRejectEmptyStudyResponse() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        RestClientException ex = assertThrows(
+                RestClientException.class,
+                () -> client.getStudy("study-001")
+        );
+
+        assertEquals("Orthanc returned an empty study response.", ex.getMessage());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldRejectMissingStudyInstanceUID() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                            "MainDicomTags": {}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        RestClientException ex = assertThrows(
+                RestClientException.class,
+                () -> client.getStudy("study-001")
+        );
+
+        assertEquals("Orthanc returned a study response without a StudyInstanceUID.", ex.getMessage());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldRejectMissingMainDicomTags() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                            
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        RestClientException ex = assertThrows(
+                RestClientException.class,
+                () -> client.getStudy("study-001")
+        );
+
+        assertEquals("Orthanc returned a study response without a StudyInstanceUID.", ex.getMessage());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldRejectBlankStudyInstanceUID() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("""
+                        {
+                            "MainDicomTags": {"StudyInstanceUID": " "}
+                        }
+                        """, MediaType.APPLICATION_JSON));
+
+        RestClientException ex = assertThrows(
+                RestClientException.class,
+                () -> client.getStudy("study-001")
+        );
+
+        assertEquals("Orthanc returned a study response without a StudyInstanceUID.", ex.getMessage());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldPropagateStudyServerError() {
+        server.expect(requestTo("http://orthanc.test/studies/study-001"))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withServerError());
+
+        assertThrows(HttpServerErrorException.class, () -> client.getStudy("study-001"));
+
+        server.verify();
+    }
 }

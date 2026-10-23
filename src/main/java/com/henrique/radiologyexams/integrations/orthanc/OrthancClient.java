@@ -57,4 +57,23 @@ public class OrthancClient {
 
         return response;
     }
+
+    public OrthancStudyResponseDTO getStudy(String orthancStudyId) {
+        OrthancStudyResponseDTO response = restClient.get()
+                .uri("/studies/{id}", orthancStudyId)
+                .accept(MediaType.APPLICATION_JSON)
+                .retrieve()
+                .body(OrthancStudyResponseDTO.class);
+
+        if (response == null) {
+            throw new RestClientException("Orthanc returned an empty study response.");
+        }
+
+        if (response.mainDicomTags() == null || response.mainDicomTags().studyInstanceUid() == null
+                || response.mainDicomTags().studyInstanceUid().isBlank()) {
+            throw new RestClientException("Orthanc returned a study response without a StudyInstanceUID.");
+        }
+
+        return response;
+    }
 }

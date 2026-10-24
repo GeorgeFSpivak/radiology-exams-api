@@ -1,12 +1,14 @@
 package com.henrique.radiologyexams.integrations.orthanc;
 
 
+import com.henrique.radiologyexams.exceptions.InvalidDicomFileException;
 import com.henrique.radiologyexams.exceptions.OrthancCommunicationException;
 import com.henrique.radiologyexams.exceptions.OrthancIntegrationException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -57,6 +59,23 @@ public class OrthancClient {
                     .body(OrthancUploadResponseDTO.class);
         } catch (ResourceAccessException ex) {
             throw new OrthancCommunicationException("Could not communicate with orthanc.", ex);
+        } catch (HttpClientErrorException.BadRequest ex) {
+            OrthancErrorResponseDTO error;
+
+            try {
+                error = ex.getResponseBodyAs(OrthancErrorResponseDTO.class);
+            } catch (RestClientException decodingException) {
+                throw new OrthancIntegrationException("Orthanc returned an unreadable upload error response.", ex);
+            }
+
+            if (error != null && Integer.valueOf(15).equals(error.orthancStatus())) {
+                throw new InvalidDicomFileException(
+                        "Orthanc rejected the file because its dicom format is invalid.", ex
+                );
+            }
+
+            throw new OrthancIntegrationException("Could not upload the dicom instance to orthanc.", ex);
+
         } catch (RestClientException ex) {
             throw new OrthancIntegrationException("Could not upload the dicom instance to orthanc.", ex);
         }

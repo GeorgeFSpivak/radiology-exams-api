@@ -1,6 +1,7 @@
 package com.henrique.radiologyexams.integrations.orthanc;
 
 
+import com.henrique.radiologyexams.exceptions.InvalidDicomFileException;
 import com.henrique.radiologyexams.exceptions.OrthancCommunicationException;
 import com.henrique.radiologyexams.exceptions.OrthancIntegrationException;
 import org.junit.jupiter.api.BeforeEach;
@@ -370,6 +371,124 @@ class OrthancClientTest {
         );
 
         assertInstanceOf(ResourceAccessException.class, ex.getCause());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldRejectInvalidDicomFile() {
+        byte[] dicomBytes = {0, 1, 2, 3};
+        ByteArrayResource dicomFile = new ByteArrayResource(dicomBytes);
+
+        server.expect(requestTo("http://orthanc.test/instances"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON).body("""
+                                {
+                                    "Details": "Cannot parse an invalid DICOM file (size: 27 bytes)",
+                                    "HttpError": "Bad Request",
+                                    "HttpStatus": 400,
+                                    "Message": "Bad file format",
+                                    "Method": "POST",
+                                    "OrthancError": "Bad file format",
+                                    "OrthancStatus": 15,
+                                    "Uri": "/instances"
+                                }
+                                """));
+
+        InvalidDicomFileException ex = assertThrows(
+                InvalidDicomFileException.class, () -> client.uploadInstance(dicomFile)
+        );
+
+        assertInstanceOf(HttpClientErrorException.BadRequest.class, ex.getCause());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldWrapUnknownOrthancErrorCode() {
+        byte[] dicomBytes = {0, 1, 2, 3};
+        ByteArrayResource dicomFile = new ByteArrayResource(dicomBytes);
+
+        server.expect(requestTo("http://orthanc.test/instances"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON).body("""
+                                {
+                                    "OrthancStatus": 999
+                                }
+                                """));
+
+        OrthancIntegrationException ex = assertThrows(
+                OrthancIntegrationException.class, () -> client.uploadInstance(dicomFile)
+        );
+
+        assertInstanceOf(HttpClientErrorException.BadRequest.class, ex.getCause());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldWrapMissingOrthancErrorCode() {
+        byte[] dicomBytes = {0, 1, 2, 3};
+        ByteArrayResource dicomFile = new ByteArrayResource(dicomBytes);
+
+        server.expect(requestTo("http://orthanc.test/instances"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON).body("""
+                                {
+                                    
+                                }
+                                """));
+
+        OrthancIntegrationException ex = assertThrows(
+                OrthancIntegrationException.class, () -> client.uploadInstance(dicomFile)
+        );
+
+        assertInstanceOf(HttpClientErrorException.BadRequest.class, ex.getCause());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldWrapEmptyUploadErrorResponse() {
+        byte[] dicomBytes = {0, 1, 2, 3};
+        ByteArrayResource dicomFile = new ByteArrayResource(dicomBytes);
+
+        server.expect(requestTo("http://orthanc.test/instances"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON).body(""));
+
+        OrthancIntegrationException ex = assertThrows(
+                OrthancIntegrationException.class, () -> client.uploadInstance(dicomFile)
+        );
+
+        assertInstanceOf(HttpClientErrorException.BadRequest.class, ex.getCause());
+
+        server.verify();
+    }
+
+    @Test
+    void shouldWrapMalformedUploadErrorResponse() {
+        byte[] dicomBytes = {0, 1, 2, 3};
+        ByteArrayResource dicomFile = new ByteArrayResource(dicomBytes);
+
+        server.expect(requestTo("http://orthanc.test/instances"))
+                .andExpect(method(HttpMethod.POST))
+                .andRespond(withStatus(HttpStatus.BAD_REQUEST)
+                        .contentType(MediaType.APPLICATION_JSON).body("""
+                                {
+                                    "OrthancStatus":
+                                }
+                                """));
+
+        OrthancIntegrationException ex = assertThrows(
+                OrthancIntegrationException.class, () -> client.uploadInstance(dicomFile)
+        );
+
+        assertInstanceOf(HttpClientErrorException.BadRequest.class, ex.getCause());
 
         server.verify();
     }

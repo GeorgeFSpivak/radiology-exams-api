@@ -98,4 +98,24 @@ public class RadiologyExamService {
 
         return clock.instant().truncatedTo(ChronoUnit.MICROS);
     }
+
+    @Transactional
+    public DicomStudyAssociationResponseDTO associateDicomStudy(
+            String code,
+            String orthancStudyId,
+            String studyInstanceUid
+    ) {
+        RadiologyExam exam = repository.findByCode(code)
+                .orElseThrow(() -> new ExamNotFoundException(code));
+
+        Instant dicomReceivedAt = currentTime();
+
+        exam.associateDicomStudy(orthancStudyId, studyInstanceUid, dicomReceivedAt);
+
+        return new DicomStudyAssociationResponseDTO(
+                exam.getOrthancStudyId(),
+                exam.getStudyInstanceUid(),
+                exam.getDicomReceivedAt()
+        );
+    }
 }

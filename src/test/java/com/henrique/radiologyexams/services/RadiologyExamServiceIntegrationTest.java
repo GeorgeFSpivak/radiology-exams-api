@@ -13,6 +13,7 @@ import org.springframework.test.context.jdbc.Sql;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
 @SpringBootTest
@@ -79,5 +80,48 @@ class RadiologyExamServiceIntegrationTest {
         assertEquals(ExamStatus.EXAM_PERFORMED, savedChange.newStatus());
         assertEquals(response.changedAt(), savedChange.changedAt());
         assertEquals("technician-01", savedChange.changedBy());
+    }
+
+    @Test
+    @Sql(
+            statements = {
+                    """
+                    DELETE FROM exam_status_changes
+                    WHERE exam_id IN (
+                        SELECT id FROM radiology_exams
+                        WHERE code = 'EXAM-SERVICE-DB-002'
+                    );
+                    """,
+                    """
+                    DELETE FROM radiology_exams
+                    WHERE code = 'EXAM-SERVICE-DB-002';
+                    """
+            },
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD
+    )
+    void shouldPersistDicomStudyAssociation() {
+        RadiologyExam exam = new RadiologyExam(
+                "EXAM-SERVICE-DB-002",
+                Instant.parse("2026-10-13T01:00:00Z")
+        );
+
+        repository.saveAndFlush(exam);
+
+        String orthancStudyId = "orthanc-study-002";
+        String studyInstanceUid = "1.2.840.113619.2.55.3.604688435.124";
+
+        DicomStudyAssociationResponseDTO response =
+                service.associateDicomStudy(
+                        "EXAM-SERVICE-DB-002",
+                        orthancStudyId,
+                        studyInstanceUid
+        );
+
+        RadiologyExam savedExam = repository.findByCode("EXAM-SERVICE-DB-002").orElseThrow();
+
+        assertEquals(orthancStudyId, savedExam.getOrthancStudyId());
+        assertNotNull(response.dicomReceivedAt());
+        assertEquals(studyInstanceUid, savedExam.getStudyInstanceUid());
+        assertEquals(response.dicomReceivedAt(), savedExam.getDicomReceivedAt());
     }
 }

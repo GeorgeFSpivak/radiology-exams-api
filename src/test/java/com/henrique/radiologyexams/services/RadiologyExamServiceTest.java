@@ -168,4 +168,48 @@ class RadiologyExamServiceTest {
 
         verify(repository).findByCode("UNKNOWN");
     }
+
+    @Test
+    void shouldAssociateDicomStudyAndReturnDetails() {
+        Instant createdAt = Instant.parse("2026-10-12T08:00:00Z");
+        RadiologyExam exam = new RadiologyExam("EXAM-001", createdAt);
+
+        when(repository.findByCode("EXAM-001"))
+                .thenReturn(Optional.of(exam));
+
+        String orthancStudyId = "orthanc-study-001";
+        String studyInstanceUid = "1.2.840.113619.2.55.3.604688435.123";
+
+        DicomStudyAssociationResponseDTO response = service.associateDicomStudy(
+                "EXAM-001",
+                orthancStudyId,
+                studyInstanceUid
+        );
+
+        assertEquals(orthancStudyId, response.orthancStudyId());
+        assertEquals(studyInstanceUid, response.studyInstanceUid());
+        assertEquals(FIXED_INSTANT, response.dicomReceivedAt());
+        assertEquals(orthancStudyId, exam.getOrthancStudyId());
+        assertEquals(studyInstanceUid, exam.getStudyInstanceUid());
+        assertEquals(FIXED_INSTANT, exam.getDicomReceivedAt());
+        assertEquals(ExamStatus.REQUESTED, exam.getStatus());
+        verify(repository).findByCode("EXAM-001");
+    }
+
+    @Test
+    void shouldNotAssociateDicomStudyWhenExamDoesNotExist() {
+        when(repository.findByCode("UNKNOWN"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(
+                ExamNotFoundException.class,
+                () -> service.associateDicomStudy(
+                        "UNKNOWN",
+                        "orthanc-study-001",
+                        "1.2.840.113619.2.55.3.604688435.123"
+                )
+        );
+
+        verify(repository).findByCode("UNKNOWN");
+    }
 }

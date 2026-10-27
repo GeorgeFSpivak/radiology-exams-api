@@ -8,4 +8,9 @@ public class InvalidDicomFileException extends RuntimeException {
 
         super(message, cause);
     }
+
+    public InvalidDicomFileException(String message) {
+
+        super(message);
+    }
 }

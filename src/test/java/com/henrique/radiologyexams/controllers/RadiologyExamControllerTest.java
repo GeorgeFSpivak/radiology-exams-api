@@ -17,6 +17,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
@@ -518,6 +519,61 @@ public class RadiologyExamControllerTest {
                 .andExpect(jsonPath("$.status").value(409))
                 .andExpect(jsonPath("$.title").value("Invalid dicom study association"))
                 .andExpect(jsonPath("$.detail").value(ex.getMessage()));
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
+    }
+
+    @Test
+    void shouldReturnServiceUnavailableWhenOrthancCommunicationFails()  throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "image.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        OrthancCommunicationException ex = new OrthancCommunicationException(
+                "Connection failed at internal orthanc address.",
+                new IOException("Connection refused")
+        );
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(file))).thenThrow(ex);
+
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom").file(file)
+                ).andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.status").value(503))
+                .andExpect(jsonPath("$.title").value("Image service unavailable"))
+                .andExpect(jsonPath("$.detail").value("Could not communicate with the image service."));
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
+    }
+
+    @Test
+    void shouldReturnBadGatewayWhenOrthancIntegrationFails()  throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "image.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        OrthancIntegrationException ex = new OrthancIntegrationException(
+                "Orthanc returned a study response without a StudyInstanceUid."
+        );
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(file))).thenThrow(ex);
+
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom").file(file)
+                ).andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.status").value(502))
+                .andExpect(jsonPath("$.title").value("Image service integration failure"))
+                .andExpect(jsonPath("$.detail").value(
+                        "Could not complete the operation with the image service.")
+                );
 
         verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
     }

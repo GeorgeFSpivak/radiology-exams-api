@@ -173,4 +173,32 @@ public class GlobalExceptionHandler {
 
         return problem;
     }
+
+    @ExceptionHandler(OrthancCommunicationException.class)
+    public ProblemDetail handleOrthancCommunication (
+            OrthancCommunicationException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.SERVICE_UNAVAILABLE,
+                "Could not communicate with the image service."
+        );
+
+        problem.setTitle("Image service unavailable");
+
+        return problem;
+    }
+
+    @ExceptionHandler(OrthancIntegrationException.class)
+    public ProblemDetail handleOrthancIntegration (
+            OrthancIntegrationException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_GATEWAY,
+                "Could not complete the operation with the image service."
+        );
+
+        problem.setTitle("Image service integration failure");
+
+        return problem;
+    }
 }

@@ -2,10 +2,8 @@ package com.henrique.radiologyexams.controllers;
 
 
 import com.henrique.radiologyexams.domain.exam.*;
-import com.henrique.radiologyexams.exceptions.DicomStudyRequiredException;
-import com.henrique.radiologyexams.exceptions.ExamAlreadyExistsException;
-import com.henrique.radiologyexams.exceptions.ExamNotFoundException;
-import com.henrique.radiologyexams.exceptions.InvalidExamStatusTransitionException;
+import com.henrique.radiologyexams.exceptions.*;
+import com.henrique.radiologyexams.services.DicomUploadService;
 import com.henrique.radiologyexams.services.RadiologyExamService;
 import jakarta.servlet.ServletException;
 import org.hibernate.exception.ConstraintViolationException;
@@ -15,6 +13,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -37,6 +36,9 @@ public class RadiologyExamControllerTest {
 
     @MockitoBean
     private RadiologyExamService service;
+
+    @MockitoBean
+    private DicomUploadService uploadService;
 
     @Test
     void shouldCreateExamAndReturnCreatedStatus() throws Exception {
@@ -427,5 +429,96 @@ public class RadiologyExamControllerTest {
         );
 
         assertSame(ex, failure.getCause());
+    }
+
+    @Test
+    void shouldUploadDicomFilesAndReturnAssociation()  throws Exception {
+        Instant receivedAt = Instant.parse("2026-10-20T10:00:00Z");
+
+        MockMultipartFile firstFile = new MockMultipartFile(
+                "files",
+                "first.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        MockMultipartFile secondFile = new MockMultipartFile(
+                "files",
+                "second.dcm",
+                "application/dicom",
+                new byte[]{4, 5, 6}
+        );
+
+        DicomStudyAssociationResponseDTO response = new DicomStudyAssociationResponseDTO(
+                "study-001",
+                "1.2.3",
+                receivedAt
+        );
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(firstFile, secondFile))).thenReturn(response);
+
+        mockMvc.perform(
+                multipart("/exams/{code}/dicom", "EXAM-001")
+                        .file(firstFile)
+                        .file(secondFile)
+        ).andExpect(status().isOk())
+                .andExpect(jsonPath("$.orthancStudyId").value("study-001"))
+                .andExpect(jsonPath("$.studyInstanceUid").value("1.2.3"))
+                .andExpect(jsonPath("$.dicomReceivedAt").value("2026-10-20T10:00:00Z"));
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(firstFile, secondFile));
+    }
+
+    @Test
+    void shouldReturnBadRequestWhenDicomFileIsInvalid()  throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "image.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        InvalidDicomFileException ex = new InvalidDicomFileException(
+                "Dicom files cannot be empty."
+        );
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(file))).thenThrow(ex);
+
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom").file(file)
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Invalid dicom file"))
+                .andExpect(jsonPath("$.detail").value(ex.getMessage()));
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
+    }
+
+    @Test
+    void shouldReturnConflictWhenDicomStudyAssociationIsInvalid()  throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "image.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        InvalidDicomStudyAssociationException ex = new InvalidDicomStudyAssociationException(
+                "A dicom study is already associated with this exam."
+        );
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(file))).thenThrow(ex);
+
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom").file(file)
+                ).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.title").value("Invalid dicom study association"))
+                .andExpect(jsonPath("$.detail").value(ex.getMessage()));
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
     }
 }

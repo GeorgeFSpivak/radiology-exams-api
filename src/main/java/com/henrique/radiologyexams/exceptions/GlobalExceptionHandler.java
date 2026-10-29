@@ -145,4 +145,32 @@ public class GlobalExceptionHandler {
 
         return problem;
     }
+
+    @ExceptionHandler(InvalidDicomFileException.class)
+    public ProblemDetail handleInvalidDicomFile (
+            InvalidDicomFileException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+
+        problem.setTitle("Invalid dicom file");
+
+        return problem;
+    }
+
+    @ExceptionHandler(InvalidDicomStudyAssociationException.class)
+    public ProblemDetail handleInvalidDicomStudyAssociation (
+            InvalidDicomStudyAssociationException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                ex.getMessage()
+        );
+
+        problem.setTitle("Invalid dicom study association");
+
+        return problem;
+    }
 }

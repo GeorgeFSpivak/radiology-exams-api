@@ -2,19 +2,31 @@ package com.henrique.radiologyexams.controllers;
 
 
 import com.henrique.radiologyexams.domain.exam.*;
+import com.henrique.radiologyexams.services.DicomUploadService;
 import com.henrique.radiologyexams.services.RadiologyExamService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/exams")
 public class RadiologyExamController {
     private final RadiologyExamService service;
 
-    public RadiologyExamController(RadiologyExamService service){
+    private final DicomUploadService uploadService;
+
+    public RadiologyExamController(
+            RadiologyExamService service,
+            DicomUploadService uploadService
+    ) {
+
         this.service = service;
+        this.uploadService = uploadService;
     }
 
     @PostMapping
@@ -42,6 +54,16 @@ public class RadiologyExamController {
     ) {
         ExamStatusChangeResponseDTO response =
                 service.changeExamStatus(code, request);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
+    }
+
+    @PostMapping(value = "/{code}/dicom", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<DicomStudyAssociationResponseDTO> uploadDicomFile(
+            @PathVariable String code,
+            @RequestParam("files") List<MultipartFile> files
+    ) {
+        DicomStudyAssociationResponseDTO response = uploadService.uploadDicomFiles(code, files);
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

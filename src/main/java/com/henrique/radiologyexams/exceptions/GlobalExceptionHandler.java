@@ -11,6 +11,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -213,6 +214,20 @@ public class GlobalExceptionHandler {
         );
 
         problem.setTitle("Upload too large");
+
+        return problem;
+    }
+
+    @ExceptionHandler(MissingServletRequestPartException.class)
+    public ProblemDetail handleMissingServletRequestPart (
+            MissingServletRequestPartException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST,
+                "Required multipart part '" + ex.getRequestPartName() +"' is missing."
+        );
+
+        problem.setTitle("Missing upload part");
 
         return problem;
     }

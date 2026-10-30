@@ -604,4 +604,18 @@ public class RadiologyExamControllerTest {
 
         verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
     }
+
+    @Test
+    void shouldRejectUploadWithoutFiles()  throws Exception {
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom")
+                ).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.title").value("Missing upload part"))
+                .andExpect(jsonPath("$.detail").value(
+                        "Required multipart part 'files' is missing.")
+                );
+
+        verifyNoInteractions(uploadService);
+    }
 }

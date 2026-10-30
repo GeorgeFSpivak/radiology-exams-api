@@ -10,6 +10,7 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -198,6 +199,20 @@ public class GlobalExceptionHandler {
         );
 
         problem.setTitle("Image service integration failure");
+
+        return problem;
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleMaxUploadSizeExceeded (
+            MaxUploadSizeExceededException ex
+    ){
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                ex.getStatusCode(),
+                "The upload exceeds the allowed file or request size."
+        );
+
+        problem.setTitle("Upload too large");
 
         return problem;
     }

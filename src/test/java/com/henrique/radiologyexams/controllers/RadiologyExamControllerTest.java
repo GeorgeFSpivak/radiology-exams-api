@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -573,6 +574,32 @@ public class RadiologyExamControllerTest {
                 .andExpect(jsonPath("$.title").value("Image service integration failure"))
                 .andExpect(jsonPath("$.detail").value(
                         "Could not complete the operation with the image service.")
+                );
+
+        verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
+    }
+
+    @Test
+    void shouldReturn413WhenUploadSizeIsExceeded()  throws Exception {
+        MockMultipartFile file = new MockMultipartFile(
+                "files",
+                "image.dcm",
+                "application/dicom",
+                new byte[]{1, 2, 3}
+        );
+
+        MaxUploadSizeExceededException ex = new MaxUploadSizeExceededException(25L * 1024 * 1024);
+
+        when(uploadService.uploadDicomFiles(
+                "EXAM-001", List.of(file))).thenThrow(ex);
+
+        mockMvc.perform(
+                        multipart("/exams/EXAM-001/dicom").file(file)
+                ).andExpect(status().is(413))
+                .andExpect(jsonPath("$.status").value(413))
+                .andExpect(jsonPath("$.title").value("Upload too large"))
+                .andExpect(jsonPath("$.detail").value(
+                        "The upload exceeds the allowed file or request size.")
                 );
 
         verify(uploadService).uploadDicomFiles("EXAM-001", List.of(file));
